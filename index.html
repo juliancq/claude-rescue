@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claude Code — Sesiones</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3249;
+      --accent: #7c6af7;
+      --accent2: #5b9cf6;
+      --text: #e2e4f0;
+      --muted: #7a7f99;
+      --success: #4ade80;
+      --radius: 10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 32px 24px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+
+    header .logo {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    header h1 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+
+    header span {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-left: auto;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+    }
+    .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+
+    .btn-ghost {
+      background: var(--surface2);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { color: var(--text); background: var(--border); }
+
+    .search-wrap {
+      margin-left: auto;
+      position: relative;
+    }
+    .search-wrap svg {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+    }
+    #search {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 12px 8px 34px;
+      font-size: 0.875rem;
+      width: 240px;
+      outline: none;
+      transition: border 0.15s;
+    }
+    #search:focus { border-color: var(--accent); }
+    #search::placeholder { color: var(--muted); }
+
+    .stats-bar {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .stat-val {
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+
+    thead {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      text-align: left;
+      padding: 12px 16px;
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      user-select: none;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    th:hover { color: var(--text); }
+    th .sort-icon { margin-left: 4px; opacity: 0.4; }
+    th.sorted .sort-icon { opacity: 1; color: var(--accent); }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+      cursor: pointer;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+
+    td {
+      padding: 12px 16px;
+      vertical-align: top;
+    }
+
+    .project-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .project-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .session-id {
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.75rem;
+      color: var(--accent2);
+    }
+
+    .preview {
+      color: var(--text);
+      max-width: 420px;
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .msg-count {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(124,106,247,0.15);
+      border: 1px solid rgba(124,106,247,0.3);
+      color: var(--accent);
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 64px 32px;
+      color: var(--muted);
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+    .empty-state h2 { font-size: 1.1rem; color: var(--text); margin-bottom: 8px; }
+    .empty-state p { font-size: 0.875rem; }
+
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 48px;
+      color: var(--muted);
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      width: 100%;
+      max-width: 680px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      transform: translateY(12px);
+      transition: transform 0.2s;
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+
+    .modal-header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .modal-header .info { flex: 1; }
+    .modal-header h2 { font-size: 1rem; font-weight: 600; margin-bottom: 4px; }
+    .modal-header .meta { font-size: 0.78rem; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 1.2rem;
+      padding: 2px 6px;
+      border-radius: 6px;
+      line-height: 1;
+    }
+    .modal-close:hover { color: var(--text); background: var(--surface2); }
+
+    .modal-body {
+      overflow-y: auto;
+      padding: 20px 24px;
+      flex: 1;
+    }
+
+    .msgs-summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .msg-stat {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      text-align: center;
+    }
+    .msg-stat-val { font-size: 1.4rem; font-weight: 700; }
+    .msg-stat-val.user { color: var(--accent2); }
+    .msg-stat-val.assistant { color: var(--accent); }
+    .msg-stat-val.total { color: var(--success); }
+    .msg-stat-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; }
+
+    .messages-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .message-item {
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+    .message-item.user {
+      background: rgba(91,156,246,0.08);
+      border: 1px solid rgba(91,156,246,0.2);
+      border-left: 3px solid var(--accent2);
+    }
+    .message-item.assistant {
+      background: rgba(124,106,247,0.08);
+      border: 1px solid rgba(124,106,247,0.2);
+      border-left: 3px solid var(--accent);
+    }
+    .message-role {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .message-item.user .message-role { color: var(--accent2); }
+    .message-item.assistant .message-role { color: var(--accent); }
+    .message-text {
+      white-space: pre-wrap;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+    }
+
+    .no-support {
+      background: var(--surface);
+      border: 1px solid #f59e0b44;
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      color: #f59e0b;
+      font-size: 0.875rem;
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    .btn-copy {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn-copy:hover { color: var(--text); border-color: var(--accent); background: rgba(124,106,247,0.1); }
+    .btn-copy.copied { color: var(--success); border-color: var(--success); background: rgba(74,222,128,0.1); }
+
+    .resume-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 18px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.82rem;
+      color: var(--accent2);
+      overflow-x: auto;
+    }
+    .resume-box span { flex: 1; white-space: nowrap; }
+    .resume-label {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚡</div>
+  <h1>Claude Code — Sesiones</h1>
+  <span id="header-info">Seleccioná la carpeta para comenzar</span>
+</header>
+
+<div id="no-support" class="no-support" style="display:none">
+  ⚠️ Tu navegador no soporta la <strong>File System Access API</strong>. Usá Chrome o Edge para poder seleccionar la carpeta.
+</div>
+
+<div class="toolbar">
+  <button class="btn btn-primary" id="btn-open">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    Seleccionar carpeta
+  </button>
+  <button class="btn btn-ghost" id="btn-refresh" style="display:none">
+    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+    Actualizar
+  </button>
+  <div class="search-wrap">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="search" placeholder="Buscar proyecto o mensaje..." />
+  </div>
+</div>
+
+<div class="stats-bar" id="stats-bar" style="display:none">
+  <div class="stat"><div class="stat-val" id="s-projects">0</div><div class="stat-label">Proyectos</div></div>
+  <div class="stat"><div class="stat-val" id="s-sessions">0</div><div class="stat-label">Sesiones</div></div>
+  <div class="stat"><div class="stat-val" id="s-messages">0</div><div class="stat-label">Mensajes totales</div></div>
+</div>
+
+<div class="table-wrap">
+  <div class="empty-state" id="empty">
+    <div class="icon">🗂️</div>
+    <h2>No hay datos cargados</h2>
+    <p>Hacé clic en "Seleccionar carpeta" y elegí la carpeta <code>.claude/projects</code></p>
+  </div>
+  <div id="loading" class="loading" style="display:none">
+    <div class="spinner"></div>
+    <span>Leyendo sesiones...</span>
+  </div>
+  <table id="table" style="display:none">
+    <thead>
+      <tr>
+        <th data-col="project">Proyecto <span class="sort-icon">↕</span></th>
+        <th data-col="sessionId">Session ID <span class="sort-icon">↕</span></th>
+        <th data-col="preview">Primer mensaje</th>
+        <th data-col="count" class="sorted">Mensajes <span class="sort-icon">↓</span></th>
+        <th>Resume</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="info">
+        <h2 id="modal-title">Sesión</h2>
+        <div class="meta">
+          <span id="modal-project"></span>
+          <span id="modal-session"></span>
+        </div>
+      </div>
+      <button class="modal-close" id="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="msgs-summary">
+        <div class="msg-stat">
+          <div class="msg-stat-val total" id="modal-total">0</div>
+          <div class="msg-stat-label">Total</div>
+        </div>
+        <div class="msg-stat">
+          <div class="msg-stat-val user" id="modal-user-count">0</div>
+          <div class="msg-stat-label">Usuario</div>
+        </div>
+        <div class="msg-stat">
+          <div class="msg-stat-val assistant" id="modal-assistant-count">0</div>
+          <div class="msg-stat-label">Asistente</div>
+        </div>
+      </div>
+      <div class="resume-label">Comando para retomar</div>
+      <div class="resume-box">
+        <span id="modal-cmd"></span>
+        <button class="btn-copy" id="modal-copy-btn">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copiar
+        </button>
+      </div>
+      <div class="messages-list" id="modal-messages"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const COLORS = [
+    '#7c6af7','#5b9cf6','#4ade80','#f59e0b','#f472b6',
+    '#34d399','#a78bfa','#60a5fa','#fb923c','#38bdf8'
+  ];
+  const projectColors = {};
+  let colorIdx = 0;
+  function getProjectColor(name) {
+    if (!projectColors[name]) projectColors[name] = COLORS[colorIdx++ % COLORS.length];
+    return projectColors[name];
+  }
+
+  let allRows = [];
+  let sortCol = 'count';
+  let sortDir = -1;
+  let dirHandle = null;
+
+  // Check API support
+  if (!('showDirectoryPicker' in window)) {
+    document.getElementById('no-support').style.display = 'block';
+  }
+
+  function extractText(content) {
+    if (typeof content === 'string') return content.trim();
+    if (Array.isArray(content)) {
+      for (const c of content) {
+        if (c.type === 'text' && c.text) return c.text.trim();
+      }
+    }
+    return '';
+  }
+
+  async function readJsonl(fileHandle) {
+    const file = await fileHandle.getFile();
+    const text = await file.text();
+    const lines = text.split('\n').filter(l => l.trim());
+    const messages = [];
+    let cwd = null;
+    for (const line of lines) {
+      try {
+        const obj = JSON.parse(line);
+        if (!cwd && obj.cwd) cwd = obj.cwd;
+        if (obj.type === 'user' || obj.type === 'assistant') {
+          const text = extractText(obj.message?.content);
+          if (text) messages.push({ role: obj.type, text });
+        }
+      } catch {}
+    }
+    return { messages, cwd };
+  }
+
+  async function loadProjects(handle) {
+    const rows = [];
+    for await (const [name, entry] of handle.entries()) {
+      if (entry.kind !== 'directory') continue;
+      for await (const [fname, fentry] of entry.entries()) {
+        if (fentry.kind !== 'file' || !fname.endsWith('.jsonl')) continue;
+        const sessionId = fname.replace('.jsonl', '');
+        const { messages, cwd } = await readJsonl(fentry);
+        const firstMsg = messages.find(m => m.role === 'user');
+        const userCount = messages.filter(m => m.role === 'user').length;
+        const assistantCount = messages.filter(m => m.role === 'assistant').length;
+        rows.push({
+          project: name,
+          cwd,
+          sessionId,
+          preview: firstMsg?.text || '(sin mensajes)',
+          count: messages.length,
+          userCount,
+          assistantCount,
+          messages
+        });
+      }
+    }
+    return rows;
+  }
+
+  function renderTable(rows) {
+    const tbody = document.getElementById('tbody');
+    tbody.innerHTML = '';
+    if (!rows.length) {
+      document.getElementById('table').style.display = 'none';
+      document.getElementById('empty').innerHTML = `<div class="icon">🔍</div><h2>Sin resultados</h2><p>Ninguna sesión coincide con la búsqueda.</p>`;
+      document.getElementById('empty').style.display = 'block';
+      return;
+    }
+    document.getElementById('empty').style.display = 'none';
+    document.getElementById('table').style.display = 'table';
+
+    for (const row of rows) {
+      const color = getProjectColor(row.project);
+      const shortProject = row.project.replace(/^C--|c--/i, '').replace(/-/g, '/').replace(/xampp\/htdocs\//i, '').replace(/Users\/Julian\//i, '~/');
+      const shortSession = row.sessionId.substring(0, 8) + '…';
+      const preview = row.preview.substring(0, 120) + (row.preview.length > 120 ? '…' : '');
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><div class="project-badge"><div class="project-dot" style="background:${color}"></div>${shortProject}</div></td>
+        <td><div class="session-id">${shortSession}</div></td>
+        <td><div class="preview">${escHtml(preview)}</div></td>
+        <td><div class="msg-count">💬 ${row.count}</div></td>
+        <td></td>
+      `;
+      const copyTd = tr.querySelector('td:last-child');
+      const copyBtn = makeCopyBtn(row.sessionId, row.cwd);
+      copyTd.appendChild(copyBtn);
+      copyTd.addEventListener('click', e => e.stopPropagation());
+      tr.addEventListener('click', () => openModal(row));
+      tbody.appendChild(tr);
+    }
+  }
+
+  function makeCopyBtn(sessionId, cwd) {
+    const cmd = cwd
+      ? `cd "${cwd}" ; claude --resume ${sessionId}`
+      : `claude --resume ${sessionId}`;
+    const btn = document.createElement('button');
+    btn.className = 'btn-copy';
+    btn.innerHTML = `<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copiar`;
+    btn.title = cmd;
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try {
+        await navigator.clipboard.writeText(cmd);
+        btn.classList.add('copied');
+        btn.innerHTML = `<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Copiado`;
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = `<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copiar`;
+        }, 2000);
+      } catch {}
+    });
+    return btn;
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function sortAndRender(rows) {
+    const sorted = [...rows].sort((a, b) => {
+      const av = a[sortCol] ?? '';
+      const bv = b[sortCol] ?? '';
+      if (typeof av === 'number') return (av - bv) * sortDir;
+      return String(av).localeCompare(String(bv)) * sortDir;
+    });
+    renderTable(sorted);
+  }
+
+  function openModal(row) {
+    const shortProject = row.project.replace(/^C--|c--/i, '').replace(/-/g, '/').replace(/xampp\/htdocs\//i, '').replace(/Users\/Julian\//i, '~/');
+    document.getElementById('modal-title').textContent = shortProject;
+    document.getElementById('modal-project').textContent = '📁 ' + row.project;
+    document.getElementById('modal-session').textContent = '🔑 ' + row.sessionId;
+    document.getElementById('modal-total').textContent = row.count;
+    document.getElementById('modal-user-count').textContent = row.userCount;
+    document.getElementById('modal-assistant-count').textContent = row.assistantCount;
+
+    const cmd = row.cwd
+      ? `cd "${row.cwd}" && claude --resume ${row.sessionId}`
+      : `claude --resume ${row.sessionId}`;
+    document.getElementById('modal-cmd').textContent = cmd;
+    const modalCopyBtn = document.getElementById('modal-copy-btn');
+    modalCopyBtn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(cmd);
+        modalCopyBtn.classList.add('copied');
+        modalCopyBtn.innerHTML = `<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Copiado`;
+        setTimeout(() => {
+          modalCopyBtn.classList.remove('copied');
+          modalCopyBtn.innerHTML = `<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copiar`;
+        }, 2000);
+      } catch {}
+    };
+
+    const container = document.getElementById('modal-messages');
+    container.innerHTML = '';
+    const shown = row.messages.slice(0, 20);
+    for (const msg of shown) {
+      const div = document.createElement('div');
+      div.className = `message-item ${msg.role}`;
+      const label = msg.role === 'user' ? '👤 Usuario' : '🤖 Asistente';
+      div.innerHTML = `<div class="message-role">${label}</div><div class="message-text">${escHtml(msg.text.substring(0, 400))}${msg.text.length > 400 ? '…' : ''}</div>`;
+      container.appendChild(div);
+    }
+    if (row.messages.length > 20) {
+      const note = document.createElement('p');
+      note.style.cssText = 'text-align:center;color:var(--muted);font-size:0.8rem;margin-top:12px';
+      note.textContent = `Mostrando 20 de ${row.messages.length} mensajes`;
+      container.appendChild(note);
+    }
+
+    document.getElementById('modal-overlay').classList.add('open');
+  }
+
+  document.getElementById('modal-close').addEventListener('click', () => {
+    document.getElementById('modal-overlay').classList.remove('open');
+  });
+  document.getElementById('modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-overlay'))
+      document.getElementById('modal-overlay').classList.remove('open');
+  });
+
+  async function load() {
+    document.getElementById('loading').style.display = 'flex';
+    document.getElementById('empty').style.display = 'none';
+    document.getElementById('table').style.display = 'none';
+    try {
+      allRows = await loadProjects(dirHandle);
+      const projects = new Set(allRows.map(r => r.project)).size;
+      const totalMsgs = allRows.reduce((s, r) => s + r.count, 0);
+      document.getElementById('s-projects').textContent = projects;
+      document.getElementById('s-sessions').textContent = allRows.length;
+      document.getElementById('s-messages').textContent = totalMsgs;
+      document.getElementById('stats-bar').style.display = 'flex';
+      document.getElementById('header-info').textContent = `${allRows.length} sesiones en ${projects} proyectos`;
+      document.getElementById('btn-refresh').style.display = '';
+      sortAndRender(filterRows());
+    } catch (e) {
+      console.error(e);
+    }
+    document.getElementById('loading').style.display = 'none';
+  }
+
+  function filterRows() {
+    const q = document.getElementById('search').value.toLowerCase();
+    if (!q) return allRows;
+    return allRows.filter(r =>
+      r.project.toLowerCase().includes(q) ||
+      r.preview.toLowerCase().includes(q) ||
+      r.sessionId.toLowerCase().includes(q)
+    );
+  }
+
+  document.getElementById('btn-open').addEventListener('click', async () => {
+    try {
+      dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+      await load();
+    } catch (e) {
+      if (e.name !== 'AbortError') console.error(e);
+    }
+  });
+
+  document.getElementById('btn-refresh').addEventListener('click', () => load());
+
+  document.getElementById('search').addEventListener('input', () => {
+    sortAndRender(filterRows());
+  });
+
+  document.querySelectorAll('th[data-col]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.col;
+      if (sortCol === col) sortDir *= -1;
+      else { sortCol = col; sortDir = col === 'count' ? -1 : 1; }
+      document.querySelectorAll('th').forEach(t => { t.classList.remove('sorted'); t.querySelector('.sort-icon').textContent = '↕'; });
+      th.classList.add('sorted');
+      th.querySelector('.sort-icon').textContent = sortDir === 1 ? '↑' : '↓';
+      sortAndRender(filterRows());
+    });
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.getElementById('modal-overlay').classList.remove('open');
+  });
+</script>
+</body>
+</html>
