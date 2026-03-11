@@ -379,6 +379,54 @@
       -webkit-box-orient: vertical;
     }
 
+    .alias-cell {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 120px;
+    }
+    .alias-text {
+      font-size: 0.82rem;
+      color: var(--text);
+      cursor: pointer;
+      border-bottom: 1px dashed transparent;
+      transition: border-color 0.15s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 160px;
+    }
+    .alias-text:hover { border-bottom-color: var(--accent); color: var(--accent); }
+    .alias-text.is-default { color: var(--muted); font-family: 'Cascadia Code','Fira Code',monospace; font-size: 0.73rem; }
+    .alias-input {
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      color: var(--text);
+      border-radius: 5px;
+      padding: 3px 7px;
+      font-size: 0.82rem;
+      outline: none;
+      width: 150px;
+    }
+
+    .filter-select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 30px 8px 12px;
+      font-size: 0.875rem;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a7f99' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      transition: border 0.15s;
+      max-width: 220px;
+    }
+    .filter-select:focus { border-color: var(--accent); }
+
     .no-support {
       background: var(--surface);
       border: 1px solid #f59e0b44;
@@ -454,6 +502,9 @@
     <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
     Actualizar
   </button>
+  <select class="filter-select" id="filter-project" style="display:none">
+    <option value="">Todos los directorios</option>
+  </select>
   <div class="search-wrap">
     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     <input type="text" id="search" placeholder="Buscar proyecto o mensaje..." />
@@ -480,9 +531,12 @@
     <thead>
       <tr>
         <th data-col="project">Proyecto <span class="sort-icon">↕</span></th>
+        <th data-col="alias">Alias <span class="sort-icon">↕</span></th>
         <th data-col="sessionId">Session ID <span class="sort-icon">↕</span></th>
         <th data-col="preview">Primer mensaje</th>
-        <th data-col="count" class="sorted">Mensajes <span class="sort-icon">↓</span></th>
+        <th data-col="count">Mensajes <span class="sort-icon">↕</span></th>
+        <th data-col="createdAt" class="sorted">Fecha <span class="sort-icon">↓</span></th>
+        <th data-col="age">Edad <span class="sort-icon">↕</span></th>
         <th>Resume</th>
       </tr>
     </thead>
@@ -543,9 +597,87 @@
   }
 
   let allRows = [];
-  let sortCol = 'count';
+  let sortCol = 'createdAt';
   let sortDir = -1;
   let dirHandle = null;
+  let aliases = {};
+  let aliasesFileHandle = null;
+
+  function getAlias(sessionId) {
+    return aliases[sessionId] ?? null;
+  }
+
+  async function loadAliases(handle) {
+    try {
+      aliasesFileHandle = await handle.getFileHandle('session-aliases.json', { create: true });
+      const file = await aliasesFileHandle.getFile();
+      const text = await file.text();
+      aliases = text.trim() ? JSON.parse(text) : {};
+    } catch {
+      aliases = {};
+    }
+  }
+
+  async function saveAliases() {
+    if (!aliasesFileHandle) return;
+    try {
+      const writable = await aliasesFileHandle.createWritable();
+      await writable.write(JSON.stringify(aliases, null, 2));
+      await writable.close();
+    } catch (e) { console.error('Error guardando aliases:', e); }
+  }
+
+  function makeAliasCell(sessionId) {
+    const alias = getAlias(sessionId);
+    const isDefault = alias === null;
+    const displayText = alias ?? sessionId.substring(0, 8) + '…';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'alias-cell';
+
+    const span = document.createElement('span');
+    span.className = 'alias-text' + (isDefault ? ' is-default' : '');
+    span.textContent = displayText;
+    span.title = 'Clic para editar alias';
+
+    span.addEventListener('click', () => {
+      const currentAlias = aliases[sessionId] ?? '';
+      const input = document.createElement('input');
+      input.className = 'alias-input';
+      input.value = currentAlias;
+      input.placeholder = sessionId.substring(0, 8) + '…';
+      wrap.replaceChild(input, span);
+      input.focus();
+      input.select();
+
+      const commit = async () => {
+        const val = input.value.trim();
+        if (val) {
+          aliases[sessionId] = val;
+          span.textContent = val;
+          span.classList.remove('is-default');
+        } else {
+          delete aliases[sessionId];
+          span.textContent = sessionId.substring(0, 8) + '…';
+          span.classList.add('is-default');
+        }
+        wrap.replaceChild(span, input);
+        await saveAliases();
+        // actualizar el campo alias en allRows para ordenamiento
+        const row = allRows.find(r => r.sessionId === sessionId);
+        if (row) row.alias = aliases[sessionId] ?? null;
+      };
+
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { wrap.replaceChild(span, input); }
+      });
+    });
+
+    wrap.appendChild(span);
+    return wrap;
+  }
 
   // Check API support
   if (!('showDirectoryPicker' in window)) {
@@ -562,23 +694,49 @@
     return '';
   }
 
+  function fmtDuration(fromTs, toTs) {
+    if (!fromTs || !toTs) return '—';
+    const ms = new Date(toTs) - new Date(fromTs);
+    if (ms <= 0) return '< 1m';
+    const mins  = Math.floor(ms / 60000) % 60;
+    const hours = Math.floor(ms / 3600000) % 24;
+    const days  = Math.floor(ms / 86400000);
+    if (days > 0)  return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${mins}m`;
+    return `${mins}m`;
+  }
+
+  function fmtDate(ts) {
+    if (!ts) return '—';
+    const d = new Date(ts);
+    const pad = n => String(n).padStart(2, '0');
+    return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
   async function readJsonl(fileHandle) {
     const file = await fileHandle.getFile();
     const text = await file.text();
     const lines = text.split('\n').filter(l => l.trim());
     const messages = [];
     let cwd = null;
+    let createdAt = null;
     for (const line of lines) {
       try {
         const obj = JSON.parse(line);
         if (!cwd && obj.cwd) cwd = obj.cwd;
+        if (!createdAt) {
+          if (obj.snapshot?.timestamp) createdAt = obj.snapshot.timestamp;
+          else if (obj.timestamp) createdAt = obj.timestamp;
+        }
         if (obj.type === 'user' || obj.type === 'assistant') {
           const text = extractText(obj.message?.content);
           if (text) messages.push({ role: obj.type, text });
         }
       } catch {}
     }
-    return { messages, cwd };
+    if (!createdAt) createdAt = new Date(file.lastModified).toISOString();
+    const modifiedAt = new Date(file.lastModified).toISOString();
+    return { messages, cwd, createdAt, modifiedAt };
   }
 
   async function loadProjects(handle) {
@@ -588,14 +746,18 @@
       for await (const [fname, fentry] of entry.entries()) {
         if (fentry.kind !== 'file' || !fname.endsWith('.jsonl')) continue;
         const sessionId = fname.replace('.jsonl', '');
-        const { messages, cwd } = await readJsonl(fentry);
+        const { messages, cwd, createdAt, modifiedAt } = await readJsonl(fentry);
         const firstMsg = messages.find(m => m.role === 'user');
         const userCount = messages.filter(m => m.role === 'user').length;
         const assistantCount = messages.filter(m => m.role === 'assistant').length;
         rows.push({
           project: name,
           cwd,
+          createdAt,
+          modifiedAt,
+          age: createdAt && modifiedAt ? new Date(modifiedAt) - new Date(createdAt) : 0,
           sessionId,
+          get alias() { return aliases[sessionId] ?? null; },
           preview: firstMsg?.text || '(sin mensajes)',
           count: messages.length,
           userCount,
@@ -628,11 +790,19 @@
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><div class="project-badge"><div class="project-dot" style="background:${color}"></div>${shortProject}</div></td>
+        <td class="alias-td"></td>
         <td><div class="session-id">${shortSession}</div></td>
         <td><div class="preview">${escHtml(preview)}</div></td>
         <td><div class="msg-count">💬 ${row.count}</div></td>
+        <td style="color:var(--muted);font-size:0.8rem;white-space:nowrap">${fmtDate(row.createdAt)}</td>
+        <td style="color:var(--muted);font-size:0.8rem;white-space:nowrap">${fmtDuration(row.createdAt, row.modifiedAt)}</td>
         <td></td>
       `;
+      // alias cell
+      const aliasTd = tr.querySelector('.alias-td');
+      aliasTd.appendChild(makeAliasCell(row.sessionId));
+      aliasTd.addEventListener('click', e => e.stopPropagation());
+
       const copyTd = tr.querySelector('td:last-child');
       const copyBtn = makeCopyBtn(row.sessionId, row.cwd);
       copyTd.appendChild(copyBtn);
@@ -644,7 +814,7 @@
 
   function makeCopyBtn(sessionId, cwd) {
     const cmd = cwd
-      ? `cd "${cwd}" ; claude --resume ${sessionId}`
+      ? `cd "${cwd}"; claude --resume ${sessionId}`
       : `claude --resume ${sessionId}`;
     const btn = document.createElement('button');
     btn.className = 'btn-copy';
@@ -689,7 +859,7 @@
     document.getElementById('modal-assistant-count').textContent = row.assistantCount;
 
     const cmd = row.cwd
-      ? `cd "${row.cwd}" && claude --resume ${row.sessionId}`
+      ? `cd "${row.cwd}"; claude --resume ${row.sessionId}`
       : `claude --resume ${row.sessionId}`;
     document.getElementById('modal-cmd').textContent = cmd;
     const modalCopyBtn = document.getElementById('modal-copy-btn');
@@ -738,6 +908,7 @@
     document.getElementById('empty').style.display = 'none';
     document.getElementById('table').style.display = 'none';
     try {
+      await loadAliases(dirHandle);
       allRows = await loadProjects(dirHandle);
       const projects = new Set(allRows.map(r => r.project)).size;
       const totalMsgs = allRows.reduce((s, r) => s + r.count, 0);
@@ -747,6 +918,7 @@
       document.getElementById('stats-bar').style.display = 'flex';
       document.getElementById('header-info').textContent = `${allRows.length} sesiones en ${projects} proyectos`;
       document.getElementById('btn-refresh').style.display = '';
+      populateProjectFilter();
       sortAndRender(filterRows());
     } catch (e) {
       console.error(e);
@@ -756,17 +928,33 @@
 
   function filterRows() {
     const q = document.getElementById('search').value.toLowerCase();
-    if (!q) return allRows;
-    return allRows.filter(r =>
-      r.project.toLowerCase().includes(q) ||
-      r.preview.toLowerCase().includes(q) ||
-      r.sessionId.toLowerCase().includes(q)
-    );
+    const proj = document.getElementById('filter-project').value;
+    return allRows.filter(r => {
+      if (proj && r.project !== proj) return false;
+      if (!q) return true;
+      return r.project.toLowerCase().includes(q) ||
+             r.preview.toLowerCase().includes(q) ||
+             r.sessionId.toLowerCase().includes(q);
+    });
+  }
+
+  function populateProjectFilter() {
+    const sel = document.getElementById('filter-project');
+    const projects = [...new Set(allRows.map(r => r.project))].sort();
+    sel.innerHTML = '<option value="">Todos los directorios</option>';
+    for (const p of projects) {
+      const short = p.replace(/^C--|c--/i, '').replace(/-/g, '/').replace(/xampp\/htdocs\//i, '').replace(/Users\/Julian\//i, '~/');
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = short;
+      sel.appendChild(opt);
+    }
+    sel.style.display = '';
   }
 
   document.getElementById('btn-open').addEventListener('click', async () => {
     try {
-      dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+      dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
       await load();
     } catch (e) {
       if (e.name !== 'AbortError') console.error(e);
@@ -779,12 +967,16 @@
     sortAndRender(filterRows());
   });
 
+  document.getElementById('filter-project').addEventListener('change', () => {
+    sortAndRender(filterRows());
+  });
+
   document.querySelectorAll('th[data-col]').forEach(th => {
     th.addEventListener('click', () => {
       const col = th.dataset.col;
       if (sortCol === col) sortDir *= -1;
       else { sortCol = col; sortDir = col === 'count' ? -1 : 1; }
-      document.querySelectorAll('th').forEach(t => { t.classList.remove('sorted'); t.querySelector('.sort-icon').textContent = '↕'; });
+      document.querySelectorAll('th[data-col]').forEach(t => { t.classList.remove('sorted'); t.querySelector('.sort-icon').textContent = '↕'; });
       th.classList.add('sorted');
       th.querySelector('.sort-icon').textContent = sortDir === 1 ? '↑' : '↓';
       sortAndRender(filterRows());
